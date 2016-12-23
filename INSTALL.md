@@ -1,4 +1,15 @@
+*For a Test deployment enviroment I suggest grabbing an old MacBook (what I did) and installing Node.JS on there. Open up Terminal to get started.*
+
+# VirtualBox
+- You know what to do with this if you know what VirtualBox is.
+    - Shinobi-12-22-2016.ova
+    https://mega.nz/#!CtogQQia!Neg23RWo1mEYe2iQdz4GqlaXTCXy60VHqwV04dV3Dvs
+        - `Username : shinobi`
+        - `Password : night`
+
 # The Easier Way
+
+<b>VIDEO TUTORIAL :</b> https://www.youtube.com/watch?v=CZSKV5gRd90
 
 1. Open `Terminal`.
 
@@ -49,10 +60,19 @@
     pm2 start camera.js
     ```
 
+17. Open up `http://localhost` in your browser.
+    - *Note :* if you are installed on a remote computer open up the IP in your web browser.
+        - `Username : ccio@m03.ca`
+        - `Password : password`
+
+- To get your IP you can run the following command.
+
+    ```
+    ifconfig
+    ```
+
 
 # The Harder Way
-
-*For a Test deployment enviroment I suggest grabbing an old MacBook (what I did) and installing Node.JS on there. Open up Terminal to get started.*
 
 <b>VIDEO TUTORIAL :</b> https://www.youtube.com/watch?v=jfgUNfVEEEc
 
