@@ -89,6 +89,7 @@ CREATE TABLE IF NOT EXISTS `Users` (
 
 -- Dumping structure for table ccio.Videos
 CREATE TABLE IF NOT EXISTS `Videos` (
+  `id` SERIAL PRIMARY KEY,
   `mid` varchar(50) DEFAULT NULL,
   `ke` varchar(50) DEFAULT NULL,
   `ext` enum('webm','mp4') DEFAULT NULL,

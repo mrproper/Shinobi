@@ -1062,14 +1062,21 @@ app.get('/:auth/videos/:ke/:id/:file', function (req,res){
 // Get videos json
 app.get(['/:auth/videos/:ke','/:auth/videos/:ke/:id'], function (req,res){
     req.fn=function(){
-    req.sql='SELECT * FROM Videos WHERE ke=?';req.ar=[req.params.ke];
-    if(req.params.id){req.sql+='and mid=?';req.ar.push(req.params.id)}
-    sql.query(req.sql,req.ar,function(err,r){
-        r.forEach(function(v){
-            v.href='/'+req.params.auth+'/videos/'+v.ke+'/'+v.mid+'/'+s.moment(v.time)+'.'+v.ext;
+        console.log('DEBUG: before');
+        //req.sql='SELECT * FROM Videos WHERE ke=?';req.ar=[req.params.ke];
+        req.sql='SELECT v.ke, v.mid, v.time, v.end, v.size, v.ext, e.seconds FROM Videos AS v LEFT JOIN Events AS e ON v.id = e.vid WHERE ke=?';
+        if(req.params.id){
+            req.sql+='AND v.mid=?';
+            req.ar.push(req.params.id);
+        }
+        sql.query(req.sql,req.ar,function(err,r){
+            r.forEach(function(v){
+                v.href='/'+req.params.auth+'/videos/'+v.ke+'/'+v.mid+'/'+s.moment(v.time)+'.'+v.ext;
+            })
+            console.log('DEBUG:');
+            console.log(r);
+            res.send(JSON.stringify(r, null, 3));
         })
-        res.send(JSON.stringify(r, null, 3));
-    })
     }
     if(s.group[req.params.ke]&&s.group[req.params.ke].users[req.params.auth]){
         req.fn();
