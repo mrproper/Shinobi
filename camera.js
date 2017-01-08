@@ -79,7 +79,6 @@ s.gid=function(x){
         t += p.charAt(Math.floor(Math.random() * p.length));
     return t;
 };
-if(!config.utcOffset){config.utcOffset='-0800'}
 s.moment=function(e,x){
     if(!e){e=new Date};if(!x){x='YYYY-MM-DDTHH-mm-ss'};
     e=moment(e);if(config.utcOffset){e=e.utcOffset(config.utcOffset)}
@@ -189,18 +188,18 @@ s.video=function(x,e){
                 }else{
                     if(fs.existsSync(e.dir+e.filename+'.'+e.ext)){
                         e.filesize=fs.statSync(e.dir+e.filename+'.'+e.ext)["size"];
-                        if((e.filesize/100000).toFixed(2)>0.25){
+//                        if((e.filesize/100000).toFixed(2)>0.25){
                             e.save=[e.filesize,e.frames,1,e.id,e.ke,s.nameToTime(e.filename)];
                             if(!e.status){e.save.push(0)}else{e.save.push(e.status)}
                             sql.query('UPDATE Videos SET `size`=?,`frames`=?,`status`=? WHERE `mid`=? AND `ke`=? AND `time`=? AND `status`=?',e.save)
          s.tx({f:'video_build_success',filename:e.filename+'.'+e.ext,mid:e.id,ke:e.ke,time:s.nameToTime(e.filename),size:e.filesize,end:s.moment(new Date,'YYYY-MM-DD HH:mm:ss')},'GRP_'+e.ke);
-                        }else{
-                            s.video('delete',e);
-                            s.log(e,{type:'File Corrupt',msg:{ffmpeg:s.group[e.ke].mon[e.mid].ffmpeg,filesize:(e.filesize/100000).toFixed(2)}})
-                        }
+//                        }else{
+//                            s.video('delete',e);
+//                            s.log(e,{type:'File Corrupt',msg:{ffmpeg:s.group[e.ke].mon[e.mid].ffmpeg,filesize:(e.filesize/100000).toFixed(2)}})
+//                        }
                     }else{
                         s.video('delete',e);
-                        s.log(e,{type:'File Not Exist',msg:'Cannot save non existant file. Something went wrong.',ffmpeg:s.group[e.ke].mon[e.mid].ffmpeg})
+                        s.log(e,{type:'File Not Exist',msg:'Cannot save non existant file. Something went wrong.',ffmpeg:s.group[e.ke].mon[e.id].ffmpeg})
                     }
                 }
             }
@@ -241,7 +240,7 @@ s.ffmpeg=function(e,x){
         break;
         case'mjpeg':
             if(e.mode=='record'){
-                x.watch=x.vcodec+x.time+x.framerate+' -s '+e.width+'x'+e.height+' -use_wallclock_as_timestamps 1 -q:v 1 '+e.dir+e.filename+'.'+e.ext+''
+                x.watch=x.vcodec+x.time+' -r 10 -s '+e.width+'x'+e.height+' -use_wallclock_as_timestamps 1 -q:v 1 '+e.dir+e.filename+'.'+e.ext+''
             }else{
                 x.watch='';
             };
@@ -254,7 +253,7 @@ s.ffmpeg=function(e,x){
             }else{
                 x.watch='';
             };
-            x.tmp='-loglevel error -i '+e.url+' -stimeout 2000'+x.watch+' -f image2pipe'+x.svf+' -s '+e.ratio+' pipe:1';
+            x.tmp='-loglevel warning -i '+e.url+' -stimeout 2000'+x.watch+' -f image2pipe'+x.svf+' -s '+e.ratio+' pipe:1';
         break;
         case'local':
             if(e.mode=='record'){
@@ -392,6 +391,7 @@ s.camera=function(x,e,cn,tx){
             }
             s.log(e,{type:'Monitor Starting',msg:{mode:x}});
             s.tx({f:'monitor_starting',mode:x,mid:e.id,time:s.moment()},'GRP_'+e.ke);
+            e.error_fatal_count=0;
             e.error_count=0;
                 e.set=function(y){
                     clearInterval(s.group[e.ke].mon[e.id].running);
@@ -423,9 +423,13 @@ s.camera=function(x,e,cn,tx){
                 }
                 e.error_fatal=function(x){
                     clearTimeout(e.err_fatal_timeout);
+                    ++e.error_fatal_count;
                     e.err_fatal_timeout=setTimeout(function(){
-                        ++e.error_fatal_count;
-                        if(e.error_fatal_count>10){s.camera('stop',{id:e.id,ke:e.ke})}else{e.fn()};
+                        if(e.error_fatal_count>10){
+                            s.camera('stop',{id:e.id,ke:e.ke})
+                        }else{
+                            e.fn()
+                        };
                     },5000);
                 }
                 e.error=function(x){
@@ -488,7 +492,7 @@ s.camera=function(x,e,cn,tx){
                                                 switch(true){
     //                                                case e.chk('av_interleaved_write_frame'):
                                                     case e.chk('Connection timed out'):
-                                                        setTimeout(function(){e.fn();},1000)//restart
+                                                        setTimeout(function(){s.log(e,{type:"Can't Connect",msg:'Retrying...'});e.error_fatal();},1000)//restart
                                                     break;
                                                     case e.chk('No pixel format specified'):
                                                         s.log(e,{type:"FFMPEG STDERR",msg:{ffmpeg:s.group[e.ke].mon[e.id].ffmpeg,msg:d}})
@@ -501,13 +505,9 @@ s.camera=function(x,e,cn,tx){
                                                     case e.chk('Unable to open RTSP for listening'):
                                                     case e.chk('timed out'):
                                                     case e.chk('Invalid data found when processing input'):
-                                                        if(e.frames===0&&x==='record'){s.video('delete',e)};
-                                                        e.error({type:'stderr out',msg:d});
-                                                    break;
                                                     case e.chk('Immediate exit requested'):
                                                     case e.chk('reset by peer'):
                                                        if(e.frames===0&&x==='record'){s.video('delete',e)};
-                                                        e.error({type:'stderr out',msg:d});
                                                     break;
                                                 }
                                                 s.log(e,{type:"FFMPEG STDERR",msg:d})
@@ -994,11 +994,19 @@ app.get(['/:auth/monitor/:ke/:mid/:f','/:auth/monitor/:ke/:mid/:f/:ff','/:auth/m
             if(r&&r[0]){
                 r=r[0];
                 if(r.mode!==req.params.f){
-                    s.camera(req.params.f,r);req.ret.cmd_at=moment();
+                    r.mode=req.params.f;
+                    s.group[r.ke].mon_conf[r.mid]=r;
+                    s.tx({f:'monitor_edit',mid:r.id,ke:r.ke,mon:r},'GRP_'+r.ke);
+                    s.camera('stop',r);
+                    if(req.params.f!=='stop'){
+                        s.camera(req.params.f,r);
+                    }
+                    req.ret.cmd_at=s.moment(new Date,'YYYY-MM-DD HH:mm:ss');
                     req.ret.msg='Monitor mode changed to : '+req.params.f,req.ret.ok=true;
                     sql.query('UPDATE Monitors SET mode=? WHERE ke=? AND mid=?',[req.params.f,r.ke,r.mid]);
                     if(req.params.ff&&req.params.f!=='stop'){
                         req.params.ff=parseFloat(req.params.ff);
+                        clearTimeout(s.group[r.ke].mon[r.mid].trigger_timer)
                         switch(req.params.fff){
                             case'day':case'days':
                                 req.timeout=req.params.ff*1000*60*60*24
@@ -1013,8 +1021,12 @@ app.get(['/:auth/monitor/:ke/:mid/:f','/:auth/monitor/:ke/:mid/:f/:ff','/:auth/m
                                 req.timeout=req.params.ff*1000
                             break;
                         }
-                        setTimeout(function(){sql.query('UPDATE Monitors SET mode=? WHERE ke=? AND mid=?',['stop',r.ke,r.mid]);s.camera('stop')},req.timeout);
-                        req.ret.end_at=moment().add(req.timeout,'milliseconds');
+                        s.group[r.ke].mon[r.mid].trigger_timer=setTimeout(function(){
+                            sql.query('UPDATE Monitors SET mode=? WHERE ke=? AND mid=?',['stop',r.ke,r.mid]);
+                            s.camera('stop',r);r.mode='stop';s.group[r.ke].mon_conf[r.mid]=r;
+                            s.tx({f:'monitor_edit',mid:r.id,ke:r.ke,mon:r},'GRP_'+r.ke);
+                        },req.timeout);
+                        req.ret.end_at=s.moment(new Date,'YYYY-MM-DD HH:mm:ss').add(req.timeout,'milliseconds');
                     }
                 }else{
                     req.ret.msg='Monitor mode is already : '+req.params.f;
