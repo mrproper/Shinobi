@@ -179,17 +179,17 @@ $.ccio.ws.on('f',function (d){
             d.tmp+='</span>'
             d.tmp+='</li>';
             $.each(d.l,function(n,v){
-                if(d.l.find('.log-item').length>10){d.l.find('.log-item:last').remove()}
+                if($(v).find('.log-item').length>10){d.l.find('.log-item:last').remove()}
             })
             d.l.prepend(d.tmp);$.ccio.init('ls');
         break;
         case'os'://indicator
             //cpu
-            d.cpu=(d.cpu*100).toFixed(0)+'%';
+            d.cpu=parseFloat(d.cpu).toFixed(0)+'%';
             $('.cpu_load .progress-bar').css('width',d.cpu);
             $('.cpu_load .percent').html(d.cpu);
             //ram
-            d.ram=(100-(d.ram*100).toFixed(0))+'%';
+            d.ram=(100-parseFloat(d.ram)).toFixed(0)+'%';
             $('.ram_load .progress-bar').css('width',d.ram);
             $('.ram_load .percent').html(d.ram);
         break;
@@ -218,11 +218,10 @@ $.ccio.ws.on('f',function (d){
             $.ccio.pm(3,d.apis);
             $('.os_platform').html(d.os.platform)
             $('.os_cpuCount').html(d.os.cpuCount)
-            $('.os_totalmem').html(d.os.totalmem)
+            $('.os_totalmem').html((d.os.totalmem/1000000).toFixed(2))
             if(d.os.cpuCount>1){
                 $('.os_cpuCount_trailer').html('s')
             }
-            $('.os_totalmem').html(d.os.totalmem)
         break;
         case'get_videos':
             $.ccio.pm(0,d)
@@ -330,11 +329,11 @@ $.ccio.cx=function(x){if(!x.ke){x.ke=$user.ke;};if(!x.uid){x.uid=$user.uid;};ret
 //global form functions
 $.ccio.form={};
 $.ccio.form.details=function(e){
-    e.ar={};
-    $.each($.aM.md,function(n,v){
+    e.ar={},e.f=$(this).parents('form');
+    $.each(e.f.find('[detail]'),function(n,v){
         v=$(v);e.ar[v.attr('detail')]=v.val();
     });
-    $.aM.f.find('[name="details"]').val(JSON.stringify(e.ar));
+    e.f.find('[name="details"]').val(JSON.stringify(e.ar));
 };
 //add Monitor
 $.aM={e:$('#add_monitor')};$.aM.f=$.aM.e.find('form')
