@@ -1,37 +1,173 @@
-<script src="/libs/js/socket.io.js"></script>
-<% if(data.addon&&data.addon.indexOf('jquery')>-1){ %>
+<script>var io=null;</script>
+<% data.name='SHINOBI_'+data.ke+'_'+data.id;
+if(!port||port===''||port==80){data.url=baseUrl}else{data.url=baseUrl+':'+port}
+%>
+<script src="<%=data.url%>/libs/js/socket.io.js"></script>
+<script src="<%=data.url%>/libs/js/hls.min.js"></script>
+<% if(data.addon){
+    var ar={}
+    decodeURI(data.addon).split('|').forEach(function(v){
+        if(v.indexOf('=')>-1){
+            v=v.split('=');
+            ar[v[0]]=v[1];
+        }
+    })
+    if(!ar.width){ar.width=640;}
+    if(!ar.height){ar.height=480;}
+    if(data.addon.indexOf('jquery')>-1){ %>
 <script
   src="https://code.jquery.com/jquery-3.1.1.min.js"
   integrity="sha256-hVVnYaiADRTO2PzUGmuLJr8BLUSjGIZsDYGmIJLv2b8="
   crossorigin="anonymous"></script>
-<% } %>
-
-<% data.name='SHINOBI_'+data.ke+'_'+data.id %>
-<img id="<%= data.name %>">
+<% };
+if(data.addon.indexOf('gui')>-1){ %>
+<style>
+    .shinobi_stream{position:relative;display:inline-block}
+    .shinobi_hud{position:absolute;width:100%;height:100%;top:0;left:0;}
+    .shinobi_hud .shinobi_viewers{position:absolute;top:5px;left:5px;}
+    .shinobi_hud .shinobi_viewers{
+        display: inline-block;
+        min-width: 10px;
+        padding: 3px 7px;
+        font-size: 12px;
+        font-weight: 700;
+        line-height: 1;
+        color: #fff;
+        text-align: center;
+        white-space: nowrap;
+        vertical-align: middle;
+        background-color: #777;
+        border-radius: 10px;
+        font-family: sans-serif;
+    }
+    iframe.stream-element{border:0;}
+</style>
+<% };
+if(data.addon.indexOf('fullscreen')>-1){ %>
+<style>
+    body{margin:0;padding:0;}
+    .stream-element,.shinobi_stream{position:absolute;top:0;left:0;}
+</style>
 <script>
-if(!$.shinobi){
-    $.shinobi={}
-};
-if(!$.shinobi.ws||$.shinobi.ws.connected===false){
-    $.shinobi.ws=io(location.origin);
-    $.shinobi.ws.on('f',function (d){
-        if(d.f!=='monitor_frame'&&d.f!=='os'&&d.f!=='video_delete'){console.log(d);}
-        switch(d.f){
-            case'monitor_frame':
-                switch(d.frame_format){
-                    case'ab':
-                        var reader = new FileReader();
-                        reader.addEventListener("loadend",function(){$('<%='#'+data.name%>').attr('src',reader.result);delete(reader);});
-                        reader.readAsDataURL(new Blob([d.frame],{type:"image/jpeg"}));
+$(window).resize(function(){
+    $('.stream-element').attr('width',$('body').width())
+    $('.stream-element').attr('height',$('body').height())
+})
+</script>
+<% } %>
+<% }else{
+    //no addon set, do defaults
+    var ar={};
+    ar.width=640;
+    ar.height=480;
+} %>
+<script>
+$(document).ready(function(){
+    $('#<%= data.name %> canvas').attr('width',<%=ar.width%>).attr('height',<%=ar.height%>)
+})
+</script>
+<div class="shinobi_stream" id="<%= data.name %>">
+    
+    <% switch(JSON.parse(mon.details).stream_type){
+        case'hls':
+            %><video class="stream-element"></video><%
+        break;
+        case'mjpeg':
+            %><iframe class="stream-element"></iframe><%
+        break;
+    default:
+            %><canvas class="stream-element"></canvas><%
+        break;
+    } %>
+    
+    
+<% if(data.addon&&data.addon.indexOf('gui')>-1){ %>
+    <div class="shinobi_hud">
+        <div class="shinobi_viewers" title="Current number of viewers"></div>
+    </div>
+<% } %>
+</div>
+<script>
+    var SHINOBI_TIMER=setInterval(function(){
+        if(io){
+            clearInterval(SHINOBI_TIMER);delete(SHINOBI_TIMER);
+            if(!$.shinobi){
+                $.shinobi={}
+            };
+            if(!$.shinobi.mon){
+                $.shinobi.mon={}
+            };
+            $.shinobi.init=function(d){
+                  switch(JSON.parse($.shinobi.mon[d.id].details).stream_type){
+                    case'hls':
+                    var video = $('#SHINOBI_'+d.ke+'_'+d.id+' .stream-element')[0];
+                    d.url='<%=data.url%>/<%=data.auth%>/hls/'+d.ke+'/'+d.id+'/s.m3u8';
+                    if (navigator.userAgent.match(/(iPod|iPhone|iPad)/)) {
+                        video.src=d.url;
+                        video.onload=function(){
+                            video.play();
+                        }
+                    }else{
+                        var hls = new Hls();
+                        hls.loadSource(d.url);
+                        hls.attachMedia(video);
+                        hls.on(Hls.Events.MANIFEST_PARSED,function() {
+                          video.play();
+                        });
+                    }
                     break;
-                    case'b64':
-                        $('<%='#'+data.name%>').attr('src','data:image/jpeg;base64,'+d.frame);
+                    case'mjpeg':
+                        $('#SHINOBI_'+d.ke+'_'+d.id+' .stream-element').attr('src','<%=data.url%>/<%=data.auth%>/mjpeg/'+d.ke+'/'+d.id+'/full')
                     break;
                 }
-                delete(d.frame);
-            break;
+            }
+            $.shinobi.mon['<%=data.id%>']=<%- JSON.stringify(mon) %>;
+            if(!$.shinobi.callback){$.shinobi.callback=function(){}}
+            if(!$.shinobi.ws||$.shinobi.ws.connected===false){
+                $.shinobi.ws=io('<%=data.url%>');
+                $.shinobi.ws.on('f',function (d){
+                if(d.viewers){
+                    $('#SHINOBI_'+d.ke+'_'+d.id+' .shinobi_viewers').html(d.viewers);
+                }
+                switch(d.f){
+                        case'monitor_frame':
+                            var image = new Image();
+                            var ctx = $('#SHINOBI_'+d.ke+'_'+d.id+' canvas')[0];
+                            image.onload = function() {
+                                ctx.getContext("2d").drawImage(image,0,0,ctx.width,ctx.height);
+                            };
+                            image.src='data:image/jpeg;base64,'+d.frame
+                            delete(d.frame);
+                            delete(image);
+                        break;
+                        case'monitor_watch_off':case'monitor_watch_on':
+                            $('#SHINOBI_'+d.ke+'_'+d.id+' .shinobi_viewers').html(d.viewers)
+                            $.shinobi.init(d)
+                        break;
+                        case'monitor_edit':
+                            d.e=$('#SHINOBI_'+d.ke+'_'+d.id+'');d.ee=d.e.find('.stream-element');
+                            switch(d.mon.details.stream_type){
+                                case'hls':
+                                    d.ee.after('<video class="stream-element"></video>').remove()
+                                break;
+                                case'mjpeg':
+                                    d.ee.after('<iframe class="stream-element"></iframe>').remove()
+                                break;
+                                default://base64
+                                    d.ee.after('<canvas class="stream-element"></canvas>').remove()
+                                break;
+                            }
+                            $(window).resize();
+                            d.mon.details=JSON.stringify(d.mon.details);
+                            $.shinobi.mon[d.mon.mid]=d.mon;
+                            $.shinobi.init(d);
+                        break;
+                    }
+                    $.shinobi.callback()
+                });
+            };
+            $.shinobi.ws.emit('e',{f:'init',auth:'<%=data.auth%>',id:'<%=data.id%>',ke:'<%=data.ke%>'})
+            $(window).resize();
         }
-    });
-};
-$.shinobi.ws.emit('e',{f:'init',auth:'<%=data.auth%>',id:'<%=data.id%>',ke:'<%=data.ke%>'})
+    },1000);
 </script>
